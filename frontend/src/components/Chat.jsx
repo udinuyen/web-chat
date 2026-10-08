@@ -54,12 +54,19 @@ export default function Chat({ user, onLogout }) {
     setMessages([{ type: 'system', text: 'Bạn đã ngắt kết nối.' }]);
   };
 
-  const sendMessage = (e) => {
+const sendMessage = (e) => {
     e.preventDefault();
     if (inputText.trim() === '' || chatState !== 'CONNECTED') return;
 
+    // Cập nhật cấu trúc tin nhắn để truyền qua socket giống với tính năng ảnh
+    const messageData = { 
+        text: inputText 
+    };
+
     setMessages((prev) => [...prev, { type: 'me', text: inputText }]);
-    socket.emit('send_message', { text: inputText });
+    
+    // Gửi đúng object messageData
+    socket.emit('send_message', messageData); 
     setInputText('');
   };
 
