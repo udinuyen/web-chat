@@ -49,12 +49,11 @@ io.on('connection', (socket) => {
   });
 
   // Xử lý gửi tin nhắn
-  socket.on('send_message', (data) => {
-    if (socket.room) {
-      // Gửi cho người kia trong phòng (không gửi lại cho chính mình)
-      socket.to(socket.room).emit('receive_message', data);
-    }
-  });
+socket.on("send_message", (data) => {
+    // data lúc này sẽ là: { room: "...", sender: "...", text: "...", image: "base64..." }
+    // Phát (broadcast) dữ liệu này cho người đang ở chung phòng
+    socket.to(data.room).emit("receive_message", data);
+});
 
   // Xử lý khi user chủ động ngắt/bỏ qua người hiện tại
   socket.on('leave_chat', () => {
