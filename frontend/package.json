@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^7.6.9",
+    "@capacitor/core": "^8.5.2",
     "@react-oauth/google": "^0.12.1",
     "jwt-decode": "^4.0.0",
     "react": "^18.2.0",
