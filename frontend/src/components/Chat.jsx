@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
-// Không cần import Message nữa vì ta sẽ render trực tiếp để hỗ trợ cả ảnh và chữ
 import { SOCKET_URL } from '../config';
 
 let socket;
 
 export default function Chat({ user, onLogout }) {
-  const [chatState, setChatState] = useState('IDLE'); // IDLE, WAITING, CONNECTED
+  // Thêm state PENDING_CONFIRM
+  const [chatState, setChatState] = useState('IDLE'); // IDLE, WAITING, PENDING_CONFIRM, CONNECTED
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
+  const [matchInfo, setMatchInfo] = useState(null); // Lưu thông tin khoảng cách
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -19,12 +20,25 @@ export default function Chat({ user, onLogout }) {
       setMessages([{ type: 'system', text: data.message }]);
     });
 
+    // Bắt sự kiện khi tìm thấy người (hiện form xác nhận)
+    socket.on('match_found', (data) => {
+        setChatState('PENDING_CONFIRM');
+        setMatchInfo(data);
+    });
+    
+    // Bắt sự kiện khi 1 trong 2 từ chối
+    socket.on('match_rejected', (data) => {
+        setChatState('IDLE');
+        setMatchInfo(null);
+        setMessages([{ type: 'system', text: data.message }]);
+    });
+
     socket.on('chat_start', (data) => {
       setChatState('CONNECTED');
+      setMatchInfo(null);
       setMessages([{ type: 'system', text: data.message }]);
     });
 
-    // CẬP NHẬT: Nhận cả text và image từ người lạ
     socket.on('receive_message', (data) => {
       setMessages((prev) => [...prev, { type: 'stranger', text: data.text, image: data.image }]);
     });
@@ -45,8 +59,40 @@ export default function Chat({ user, onLogout }) {
 
   const findStranger = () => {
     setMessages([]);
-    socket.emit('find_stranger', user);
+    setChatState('WAITING');
+    
+    // Xin quyền định vị
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const location = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                socket.emit('find_stranger', { ...user, location: location });
+            },
+            (error) => {
+                console.log("Lỗi lấy vị trí:", error);
+                // Nếu lỗi/từ chối, vẫn cho tìm nhưng không có tọa độ
+                socket.emit('find_stranger', user); 
+            },
+            { timeout: 5000 }
+        );
+    } else {
+        socket.emit('find_stranger', user);
+    }
   };
+  
+  // Hàm xử lý khi bấm nút trong form xác nhận
+  const handleMatchResponse = (accept) => {
+      socket.emit('match_response', { accept });
+      if (!accept) {
+          setChatState('IDLE');
+          setMatchInfo(null);
+      } else {
+          setMessages([{ type: 'system', text: 'Đang chờ đối phương xác nhận...' }]);
+      }
+  }
 
   const leaveChat = () => {
     socket.emit('leave_chat');
@@ -54,23 +100,15 @@ export default function Chat({ user, onLogout }) {
     setMessages([{ type: 'system', text: 'Bạn đã ngắt kết nối.' }]);
   };
 
-const sendMessage = (e) => {
+  const sendMessage = (e) => {
     e.preventDefault();
     if (inputText.trim() === '' || chatState !== 'CONNECTED') return;
 
-    // Cập nhật cấu trúc tin nhắn để truyền qua socket giống với tính năng ảnh
-    const messageData = { 
-        text: inputText 
-    };
-
     setMessages((prev) => [...prev, { type: 'me', text: inputText }]);
-    
-    // Gửi đúng object messageData
-    socket.emit('send_message', messageData); 
+    socket.emit('send_message', { text: inputText });
     setInputText('');
   };
 
-  // CẬP NHẬT: Hàm gửi ảnh đã được đồng bộ với biến messages
   const sendImage = (event) => {
     const file = event.target.files[0];
     if (file && chatState === 'CONNECTED') {
@@ -83,11 +121,7 @@ const sendMessage = (e) => {
         reader.readAsDataURL(file);
         reader.onload = () => {
             const base64Image = reader.result;
-            
-            // Gửi qua server
             socket.emit("send_message", { image: base64Image });
-            
-            // Hiển thị lên màn hình của mình
             setMessages((prev) => [...prev, { type: 'me', image: base64Image }]);
         };
     }
@@ -103,13 +137,30 @@ const sendMessage = (e) => {
         <button onClick={onLogout}>Đăng xuất</button>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" style={{ position: 'relative' }}>
+        
+        {/* Form xác nhận đè lên khu vực chat */}
+        {chatState === 'PENDING_CONFIRM' && matchInfo && (
+            <div style={{
+                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                textAlign: 'center', zIndex: 10, width: '80%'
+            }}>
+                <h4 style={{ margin: '0 0 10px' }}>Tìm thấy người lạ!</h4>
+                <p>Khoảng cách: <strong>{matchInfo.distance}</strong></p>
+                <p>Bạn có muốn trò chuyện không?</p>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px' }}>
+                    <button onClick={() => handleMatchResponse(true)} style={{ backgroundColor: '#28a745', padding: '8px 20px', borderRadius: '5px', color: 'white', border: 'none' }}>Vào Chat</button>
+                    <button onClick={() => handleMatchResponse(false)} style={{ backgroundColor: '#dc3545', padding: '8px 20px', borderRadius: '5px', color: 'white', border: 'none' }}>Từ Chối</button>
+                </div>
+            </div>
+        )}
+
         {messages.map((msg, index) => {
           if (msg.type === 'system') {
-            return <div key={index} className="status-text">{msg.text}</div>;
+            return <div key={index} className="status-text" style={{ textAlign: 'center', margin: '10px', color: 'gray' }}>{msg.text}</div>;
           }
           
-          // CẬP NHẬT: Giao diện tin nhắn xử lý cả chữ và ảnh
           return (
             <div key={index} className={`message ${msg.type}`} style={{ textAlign: msg.type === 'me' ? 'right' : 'left', margin: '10px 0' }}>
               <div className="message-content" style={{ display: 'inline-block', padding: '10px', borderRadius: '8px', backgroundColor: msg.type === 'me' ? '#dcf8c6' : '#f1f0f0', textAlign: 'left' }}>
@@ -128,11 +179,10 @@ const sendMessage = (e) => {
         <div ref={messagesEndRef} />
         
         {chatState === 'IDLE' && (
-          <button className="find-btn" onClick={findStranger}>TÌM NGƯỜI LẠ</button>
+          <button className="find-btn" onClick={findStranger} style={{ width: '100%', padding: '15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}>TÌM NGƯỜI LẠ</button>
         )}
       </div>
 
-      {/* CẬP NHẬT: Gộp chung ô nhập chữ và nút gửi ảnh vào một thanh duy nhất */}
       <form className="chat-input-area" onSubmit={sendMessage} style={{ display: 'flex', alignItems: 'center', marginTop: '10px' }}>
         <input
           type="text"
@@ -154,7 +204,7 @@ const sendMessage = (e) => {
           />
         </label>
 
-        <button type="submit" disabled={chatState !== 'CONNECTED'} style={{ padding: '10px 20px' }}>Gửi</button>
+        <button type="submit" disabled={chatState !== 'CONNECTED'} style={{ padding: '10px 20px', backgroundColor: chatState === 'CONNECTED' ? '#007bff' : '#ccc', color: 'white', border: 'none', borderRadius: '5px' }}>Gửi</button>
       </form>
     </div>
   );
