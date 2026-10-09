@@ -7,67 +7,51 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 
-// Tìm đoạn code tương tự như vầy và sửa lại:
-const io = require("socket.io")(server, {
-  cors: {
-    origin: "*", 
-    methods: ["GET", "POST"]
-  },
-  maxHttpBufferSize: 1e7 // THÊM DÒNG NÀY: Cho phép gửi ảnh/file lên tới 10MB
-});
-
 const server = http.createServer(app);
+
+// 1. Khởi tạo Socket.io ĐÚNG (Chỉ 1 lần duy nhất)
 const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  maxHttpBufferSize: 1e7 // Cho phép gửi ảnh lên tới 10MB
 });
 
-// Mảng chứa những người đang tìm kiếm
 let waitingUsers = [];
 
 io.on('connection', (socket) => {
   console.log('Một người dùng đã kết nối:', socket.id);
 
-  // Xử lý khi user bấm "Tìm người lạ"
   socket.on('find_stranger', (userData) => {
-    socket.userData = userData; // Lưu thông tin user (tên, avatar...)
+    socket.userData = userData; 
 
     if (waitingUsers.length > 0) {
-      // Ghép đôi với người đang đợi đầu tiên
       const partner = waitingUsers.shift();
       const roomName = `${socket.id}#${partner.id}`;
       
       socket.join(roomName);
       partner.join(roomName);
 
-      // Lưu lại thông tin phòng và đối tác
       socket.room = roomName;
       partner.room = roomName;
       socket.partnerId = partner.id;
       partner.partnerId = socket.id;
 
-      // Thông báo cho cả 2 là đã ghép đôi thành công
       io.to(roomName).emit('chat_start', { message: 'Đã tìm thấy người lạ! Hãy gửi lời chào.' });
     } else {
-      // Không có ai, đưa vào hàng đợi
       waitingUsers.push(socket);
       socket.emit('waiting', { message: 'Đang tìm kiếm người lạ...' });
     }
   });
 
-  // Xử lý gửi tin nhắn
-// Tìm sự kiện này trong file server.js
-// Xử lý gửi tin nhắn
-// Xử lý gửi tin nhắn
+  // 2. Xử lý gửi tin nhắn (Đã sửa dụng socket.room để chuyển tiếp)
   socket.on("send_message", (data) => {
-    // Sử dụng socket.room vì server đã lưu thông tin phòng của user này từ trước
     if (socket.room) {
         socket.to(socket.room).emit("receive_message", data);
     }
-  });
-  // Xử lý khi user chủ động ngắt/bỏ qua người hiện tại
+  }); 
+
   socket.on('leave_chat', () => {
     if (socket.room) {
       socket.to(socket.room).emit('stranger_left', { message: 'Người lạ đã rời khỏi cuộc trò chuyện.' });
@@ -83,12 +67,10 @@ io.on('connection', (socket) => {
       socket.room = null;
       socket.partnerId = null;
     } else {
-      // Nếu đang trong hàng đợi mà hủy
       waitingUsers = waitingUsers.filter(u => u.id !== socket.id);
     }
   });
 
-  // Xử lý khi user đóng tab/mất kết nối mạng
   socket.on('disconnect', () => {
     if (socket.room) {
       socket.to(socket.room).emit('stranger_left', { message: 'Người lạ đã mất kết nối.' });
