@@ -7,6 +7,15 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 
+// Tìm đoạn code tương tự như vầy và sửa lại:
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*", 
+    methods: ["GET", "POST"]
+  },
+  maxHttpBufferSize: 1e7 // THÊM DÒNG NÀY: Cho phép gửi ảnh/file lên tới 10MB
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -49,11 +58,14 @@ io.on('connection', (socket) => {
   });
 
   // Xử lý gửi tin nhắn
-socket.on("send_message", (data) => {
-    // data lúc này sẽ là: { room: "...", sender: "...", text: "...", image: "base64..." }
-    // Phát (broadcast) dữ liệu này cho người đang ở chung phòng
-    socket.to(data.room).emit("receive_message", data);
-});
+// Tìm sự kiện này trong file server.js
+  socket.on("send_message", (data) => {
+    const room = // ... (biến phòng hiện tại của bạn, giữ nguyên)
+
+    // SỬA LẠI DÒNG DƯỚI ĐÂY:
+    // Đảm bảo bạn truyền chữ 'data' chứ không phải { text: data.text }
+    socket.to(room).emit("receive_message", data); 
+  });
 
   // Xử lý khi user chủ động ngắt/bỏ qua người hiện tại
   socket.on('leave_chat', () => {
