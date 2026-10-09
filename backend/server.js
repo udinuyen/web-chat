@@ -59,14 +59,14 @@ io.on('connection', (socket) => {
 
   // Xử lý gửi tin nhắn
 // Tìm sự kiện này trong file server.js
+// Xử lý gửi tin nhắn
+// Xử lý gửi tin nhắn
   socket.on("send_message", (data) => {
-    const room = // ... (biến phòng hiện tại của bạn, giữ nguyên)
-
-    // SỬA LẠI DÒNG DƯỚI ĐÂY:
-    // Đảm bảo bạn truyền chữ 'data' chứ không phải { text: data.text }
-    socket.to(room).emit("receive_message", data); 
+    // Sử dụng socket.room vì server đã lưu thông tin phòng của user này từ trước
+    if (socket.room) {
+        socket.to(socket.room).emit("receive_message", data);
+    }
   });
-
   // Xử lý khi user chủ động ngắt/bỏ qua người hiện tại
   socket.on('leave_chat', () => {
     if (socket.room) {
