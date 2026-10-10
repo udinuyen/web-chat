@@ -5,11 +5,10 @@ import { SOCKET_URL } from '../config';
 let socket;
 
 export default function Chat({ user, onLogout }) {
-  // Thêm state PENDING_CONFIRM
   const [chatState, setChatState] = useState('IDLE'); // IDLE, WAITING, PENDING_CONFIRM, CONNECTED
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [matchInfo, setMatchInfo] = useState(null); // Lưu thông tin khoảng cách
+  const [matchInfo, setMatchInfo] = useState(null); 
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -20,13 +19,11 @@ export default function Chat({ user, onLogout }) {
       setMessages([{ type: 'system', text: data.message }]);
     });
 
-    // Bắt sự kiện khi tìm thấy người (hiện form xác nhận)
     socket.on('match_found', (data) => {
         setChatState('PENDING_CONFIRM');
         setMatchInfo(data);
     });
     
-    // Bắt sự kiện khi 1 trong 2 từ chối
     socket.on('match_rejected', (data) => {
         setChatState('IDLE');
         setMatchInfo(null);
@@ -61,7 +58,6 @@ export default function Chat({ user, onLogout }) {
     setMessages([]);
     setChatState('WAITING');
     
-    // Xin quyền định vị
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -73,7 +69,6 @@ export default function Chat({ user, onLogout }) {
             },
             (error) => {
                 console.log("Lỗi lấy vị trí:", error);
-                // Nếu lỗi/từ chối, vẫn cho tìm nhưng không có tọa độ
                 socket.emit('find_stranger', user); 
             },
             { timeout: 5000 }
@@ -83,7 +78,6 @@ export default function Chat({ user, onLogout }) {
     }
   };
   
-  // Hàm xử lý khi bấm nút trong form xác nhận
   const handleMatchResponse = (accept) => {
       socket.emit('match_response', { accept });
       if (!accept) {
@@ -139,7 +133,6 @@ export default function Chat({ user, onLogout }) {
 
       <div className="chat-messages" style={{ position: 'relative' }}>
         
-        {/* Form xác nhận đè lên khu vực chat */}
         {chatState === 'PENDING_CONFIRM' && matchInfo && (
             <div style={{
                 position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -150,8 +143,8 @@ export default function Chat({ user, onLogout }) {
                 <p>Khoảng cách: <strong>{matchInfo.distance}</strong></p>
                 <p>Bạn có muốn trò chuyện không?</p>
                 <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px' }}>
-                    <button onClick={() => handleMatchResponse(true)} style={{ backgroundColor: '#28a745', padding: '8px 20px', borderRadius: '5px', color: 'white', border: 'none' }}>Vào Chat</button>
-                    <button onClick={() => handleMatchResponse(false)} style={{ backgroundColor: '#dc3545', padding: '8px 20px', borderRadius: '5px', color: 'white', border: 'none' }}>Từ Chối</button>
+                    <button onClick={() => handleMatchResponse(true)} style={{ backgroundColor: '#28a745', padding: '8px 20px', borderRadius: '5px', color: 'white', border: 'none', cursor: 'pointer' }}>Vào Chat</button>
+                    <button onClick={() => handleMatchResponse(false)} style={{ backgroundColor: '#dc3545', padding: '8px 20px', borderRadius: '5px', color: 'white', border: 'none', cursor: 'pointer' }}>Từ Chối</button>
                 </div>
             </div>
         )}
@@ -179,7 +172,7 @@ export default function Chat({ user, onLogout }) {
         <div ref={messagesEndRef} />
         
         {chatState === 'IDLE' && (
-          <button className="find-btn" onClick={findStranger} style={{ width: '100%', padding: '15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}>TÌM NGƯỜI LẠ</button>
+          <button className="find-btn" onClick={findStranger} style={{ width: '100%', padding: '15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>TÌM NGƯỜI LẠ</button>
         )}
       </div>
 
@@ -204,7 +197,7 @@ export default function Chat({ user, onLogout }) {
           />
         </label>
 
-        <button type="submit" disabled={chatState !== 'CONNECTED'} style={{ padding: '10px 20px', backgroundColor: chatState === 'CONNECTED' ? '#007bff' : '#ccc', color: 'white', border: 'none', borderRadius: '5px' }}>Gửi</button>
+        <button type="submit" disabled={chatState !== 'CONNECTED'} style={{ padding: '10px 20px', backgroundColor: chatState === 'CONNECTED' ? '#007bff' : '#ccc', color: 'white', border: 'none', borderRadius: '5px', cursor: chatState === 'CONNECTED' ? 'pointer' : 'not-allowed' }}>Gửi</button>
       </form>
     </div>
   );
