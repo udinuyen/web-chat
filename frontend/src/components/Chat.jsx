@@ -10,6 +10,7 @@ export default function Chat({ user, onLogout }) {
   const [inputText, setInputText] = useState('');
   const [matchInfo, setMatchInfo] = useState(null); 
   const messagesEndRef = useRef(null);
+  const [showQR, setShowQR] = useState(false); // Thêm dòng này để điều khiển hiện QR
 
   useEffect(() => {
     socket = io(SOCKET_URL);
@@ -129,16 +130,33 @@ export default function Chat({ user, onLogout }) {
           <div style={{ fontSize: 12 }}>{chatState === 'CONNECTED' ? 'Đang chat' : 'Trống'}</div>
         </div>
         
-        {/* Nút bấm tải App gắn link Google Drive của bạn */}
         <div style={{ display: 'flex', gap: '10px' }}>
-            <a href="DÁN_LINK_GOOGLE_DRIVE_CHỨA_FILE_APK_VÀO_ĐÂY" target="_blank" rel="noreferrer">
-                <button style={{ backgroundColor: '#ff9800', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    📱 Tải App Android
-                </button>
-            </a>
+            {/* Nút bấm mở mã QR */}
+            <button onClick={() => setShowQR(true)} style={{ backgroundColor: '#ff9800', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+                📱 Tải App Android
+            </button>
             <button onClick={onLogout}>Đăng xuất</button>
         </div>
-      </div> {/* <-- CHÍNH LÀ THẺ ĐÓNG NÀY ĐANG BỊ THIẾU TRONG CODE CỦA BẠN */}
+      </div>
+
+      {/* KHUNG HIỂN THỊ MÃ QR (Chỉ hiện khi showQR = true) */}
+      {showQR && (
+          <div style={{
+              position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+              backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999,
+              display: 'flex', justifyContent: 'center', alignItems: 'center'
+          }}>
+              <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', textAlign: 'center', boxShadow: '0 5px 15px rgba(0,0,0,0.3)' }}>
+                  <h3 style={{ marginTop: 0, color: '#333' }}>Quét mã để tải App</h3>
+                  {/* Trỏ tới file ảnh trong thư mục public */}
+                  <img src="/app_qr_code.png" alt="QR Code" style={{ width: '250px', height: '250px', margin: '15px 0' }} />
+                  <br />
+                  <button onClick={() => setShowQR(false)} style={{ padding: '10px 25px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Đóng
+                  </button>
+              </div>
+          </div>
+      )}
 
       <div className="chat-messages" style={{ position: 'relative' }}>
         
