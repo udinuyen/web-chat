@@ -123,7 +123,7 @@ export default function Chat({ user, onLogout }) {
 
   return (
     <div className="chat-wrapper">
-      <div className="chat-header">
+  <div className="chat-header">
         <div>
           <strong>{user.name}</strong>
           <div style={{ fontSize: 12 }}>{chatState === 'CONNECTED' ? 'Đang chat' : 'Trống'}</div>
@@ -138,6 +138,7 @@ export default function Chat({ user, onLogout }) {
             </a>
             <button onClick={onLogout}>Đăng xuất</button>
         </div>
+      </div> {/* <-- CHÍNH LÀ THẺ ĐÓNG NÀY ĐANG BỊ THIẾU TRONG CODE CỦA BẠN */}
 
       <div className="chat-messages" style={{ position: 'relative' }}>
         
