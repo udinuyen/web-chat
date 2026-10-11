@@ -128,8 +128,16 @@ export default function Chat({ user, onLogout }) {
           <strong>{user.name}</strong>
           <div style={{ fontSize: 12 }}>{chatState === 'CONNECTED' ? 'Đang chat' : 'Trống'}</div>
         </div>
-        <button onClick={onLogout}>Đăng xuất</button>
-      </div>
+        
+        {/* Nút bấm tải App gắn link Google Drive của bạn */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+            <a href="DÁN_LINK_GOOGLE_DRIVE_CHỨA_FILE_APK_VÀO_ĐÂY" target="_blank" rel="noreferrer">
+                <button style={{ backgroundColor: '#ff9800', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    📱 Tải App Android
+                </button>
+            </a>
+            <button onClick={onLogout}>Đăng xuất</button>
+        </div>
 
       <div className="chat-messages" style={{ position: 'relative' }}>
         
