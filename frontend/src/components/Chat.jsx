@@ -19,6 +19,9 @@ export default function Chat({ user, onLogout }) {
       setChatState('WAITING');
       setMessages([{ type: 'system', text: data.message }]);
     });
+    socket.on('system_broadcast', (data) => {
+        alert("📢 THÔNG BÁO TỪ HỆ THỐNG:\n\n" + data.message);
+    });
 
     socket.on('match_found', (data) => {
         setChatState('PENDING_CONFIRM');
