@@ -59,10 +59,21 @@ io.on('connection', (socket) => {
   });
 
   // 2. TÍNH NĂNG CHAT NGƯỜI LẠ (Giữ nguyên)
+// 2. TÍNH NĂNG CHAT NGƯỜI LẠ (Đã nâng cấp lọc Giới tính)
   socket.on('find_stranger', (userData) => {
     socket.userData = userData; 
-    if (waitingUsers.length > 0) {
-      const partner = waitingUsers.shift();
+    
+    // Tìm đối tác thỏa mãn điều kiện giới tính chéo nhau
+    let partnerIndex = waitingUsers.findIndex(partner => {
+        const pData = partner.userData;
+        const matchMyTarget = userData.targetGender === 'Bất kỳ' || userData.targetGender === pData.myGender;
+        const matchPartnerTarget = pData.targetGender === 'Bất kỳ' || pData.targetGender === userData.myGender;
+        return matchMyTarget && matchPartnerTarget;
+    });
+
+    if (partnerIndex !== -1) {
+      // Nếu tìm thấy người khớp yêu cầu
+      const partner = waitingUsers.splice(partnerIndex, 1)[0];
       const matchId = `${socket.id}#${partner.id}`;
       
       let distance = 'Chưa xác định';
@@ -74,11 +85,13 @@ io.on('connection', (socket) => {
       pendingMatches[matchId] = { user1: socket.id, user2: partner.id, user1Confirm: null, user2Confirm: null };
       socket.currentMatch = matchId; partner.currentMatch = matchId;
 
-      socket.emit('match_found', { distance, partnerName: 'Người lạ' });
-      partner.emit('match_found', { distance, partnerName: 'Người lạ' });
+      // Gửi thêm thông tin giới tính của nhau qua popup
+      socket.emit('match_found', { distance, partnerName: partner.userData.name, partnerGender: partner.userData.myGender });
+      partner.emit('match_found', { distance, partnerName: socket.userData.name, partnerGender: socket.userData.myGender });
     } else {
+      // Nếu chưa có ai khớp, đưa vào hàng đợi
       waitingUsers.push(socket);
-      socket.emit('waiting', { message: 'Đang tìm kiếm người lạ...' });
+      socket.emit('waiting', { message: `Đang tìm ${userData.targetGender !== 'Bất kỳ' ? userData.targetGender : 'người lạ'} phù hợp...` });
     }
   });
 
