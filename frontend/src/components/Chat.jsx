@@ -171,6 +171,9 @@ export default function Chat({ user, onLogout }) {
             }}>
                 <h4 style={{ margin: '0 0 10px' }}>Tìm thấy người lạ!</h4>
                 <p>Khoảng cách: <strong>{matchInfo.distance}</strong></p>
+                {/* Dòng hiển thị giới tính mới thêm vào */}
+                <p>Đối phương là: <strong style={{ color: matchInfo.partnerGender === 'Nữ' ? '#e91e63' : '#2196f3' }}>{matchInfo.partnerGender}</strong></p>
+                <p>Khoảng cách: <strong>{matchInfo.distance}</strong></p>
                 <p>Bạn có muốn trò chuyện không?</p>
                 <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px' }}>
                     <button onClick={() => handleMatchResponse(true)} style={{ backgroundColor: '#28a745', padding: '8px 20px', borderRadius: '5px', color: 'white', border: 'none', cursor: 'pointer' }}>Vào Chat</button>
