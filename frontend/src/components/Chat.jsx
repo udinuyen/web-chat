@@ -96,6 +96,17 @@ export default function Chat({ user, onLogout }) {
     socket.emit('leave_chat');
     setChatState('IDLE');
     setMessages([{ type: 'system', text: 'Bạn đã ngắt kết nối.' }]);
+    // --- THÊM HÀM NÀY VÀO ---
+  const handleReport = () => {
+    if (chatState !== 'CONNECTED') return;
+    const reason = window.prompt("Nhập lý do báo cáo (ví dụ: Chửi bậy, Spam, Gửi ảnh nhạy cảm...):", "");
+    
+    // Nếu người dùng bấm OK (không bấm Cancel)
+    if (reason !== null) {
+        socket.emit('report_user', { reason: reason || 'Vi phạm tiêu chuẩn cộng đồng' });
+        alert("Đã gửi báo cáo cho Admin! Bạn sẽ tự động ngắt kết nối với người này.");
+        leaveChat(); // Thoát khỏi phòng chat ngay lập tức
+    }
   };
 
   const sendMessage = (e) => {
@@ -128,15 +139,21 @@ export default function Chat({ user, onLogout }) {
   return (
     <div className="chat-wrapper">
   <div className="chat-header">
-        <div>
+      <div>
           <strong>{user.name}</strong>
           <div style={{ fontSize: 12 }}>{chatState === 'CONNECTED' ? 'Đang chat' : 'Trống'}</div>
         </div>
         
         <div style={{ display: 'flex', gap: '10px' }}>
-            {/* Nút bấm mở mã QR */}
+            {/* Nút báo cáo chỉ hiện ra khi đang trong cuộc trò chuyện */}
+            {chatState === 'CONNECTED' && (
+                <button onClick={handleReport} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    🚨 Báo Cáo
+                </button>
+            )}
+
             <button onClick={() => setShowQR(true)} style={{ backgroundColor: '#ff9800', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-                📱 Tải App Android
+                📱 Tải App
             </button>
             <button onClick={onLogout}>Đăng xuất</button>
         </div>
