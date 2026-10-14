@@ -10,7 +10,7 @@ export default function Chat({ user, onLogout }) {
   const [inputText, setInputText] = useState('');
   const [matchInfo, setMatchInfo] = useState(null); 
   const messagesEndRef = useRef(null);
-  const [showQR, setShowQR] = useState(false); // Thêm dòng này để điều khiển hiện QR
+  const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
     socket = io(SOCKET_URL);
@@ -19,6 +19,7 @@ export default function Chat({ user, onLogout }) {
       setChatState('WAITING');
       setMessages([{ type: 'system', text: data.message }]);
     });
+    
     socket.on('system_broadcast', (data) => {
         alert("📢 THÔNG BÁO TỪ HỆ THỐNG:\n\n" + data.message);
     });
@@ -96,16 +97,16 @@ export default function Chat({ user, onLogout }) {
     socket.emit('leave_chat');
     setChatState('IDLE');
     setMessages([{ type: 'system', text: 'Bạn đã ngắt kết nối.' }]);
-    // --- THÊM HÀM NÀY VÀO ---
+  }; // <-- Dấu ngoặc bị thiếu đã được thêm lại ở đây
+
   const handleReport = () => {
     if (chatState !== 'CONNECTED') return;
     const reason = window.prompt("Nhập lý do báo cáo (ví dụ: Chửi bậy, Spam, Gửi ảnh nhạy cảm...):", "");
     
-    // Nếu người dùng bấm OK (không bấm Cancel)
     if (reason !== null) {
         socket.emit('report_user', { reason: reason || 'Vi phạm tiêu chuẩn cộng đồng' });
         alert("Đã gửi báo cáo cho Admin! Bạn sẽ tự động ngắt kết nối với người này.");
-        leaveChat(); // Thoát khỏi phòng chat ngay lập tức
+        leaveChat(); 
     }
   };
 
@@ -138,14 +139,13 @@ export default function Chat({ user, onLogout }) {
 
   return (
     <div className="chat-wrapper">
-  <div className="chat-header">
-      <div>
+      <div className="chat-header">
+        <div>
           <strong>{user.name}</strong>
           <div style={{ fontSize: 12 }}>{chatState === 'CONNECTED' ? 'Đang chat' : 'Trống'}</div>
         </div>
         
         <div style={{ display: 'flex', gap: '10px' }}>
-            {/* Nút báo cáo chỉ hiện ra khi đang trong cuộc trò chuyện */}
             {chatState === 'CONNECTED' && (
                 <button onClick={handleReport} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
                     🚨 Báo Cáo
@@ -159,7 +159,6 @@ export default function Chat({ user, onLogout }) {
         </div>
       </div>
 
-      {/* KHUNG HIỂN THỊ MÃ QR (Chỉ hiện khi showQR = true) */}
       {showQR && (
           <div style={{
               position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
@@ -168,7 +167,6 @@ export default function Chat({ user, onLogout }) {
           }}>
               <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', textAlign: 'center', boxShadow: '0 5px 15px rgba(0,0,0,0.3)' }}>
                   <h3 style={{ marginTop: 0, color: '#333' }}>Quét mã để tải App</h3>
-                  {/* Trỏ tới file ảnh trong thư mục public */}
                   <img src="/app_qr_code.png" alt="QR Code" style={{ width: '250px', height: '250px', margin: '15px 0' }} />
                   <br />
                   <button onClick={() => setShowQR(false)} style={{ padding: '10px 25px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -187,8 +185,6 @@ export default function Chat({ user, onLogout }) {
                 textAlign: 'center', zIndex: 10, width: '80%'
             }}>
                 <h4 style={{ margin: '0 0 10px' }}>Tìm thấy người lạ!</h4>
-                <p>Khoảng cách: <strong>{matchInfo.distance}</strong></p>
-                {/* Dòng hiển thị giới tính mới thêm vào */}
                 <p>Đối phương là: <strong style={{ color: matchInfo.partnerGender === 'Nữ' ? '#e91e63' : '#2196f3' }}>{matchInfo.partnerGender}</strong></p>
                 <p>Khoảng cách: <strong>{matchInfo.distance}</strong></p>
                 <p>Bạn có muốn trò chuyện không?</p>
