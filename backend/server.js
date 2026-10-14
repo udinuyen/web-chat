@@ -15,8 +15,8 @@ const io = new Server(server, {
 
 let waitingUsers = [];
 let pendingMatches = {}; 
+let reportsList = []; // Mảng lưu trữ danh sách báo cáo
 
-// Hàm tính khoảng cách
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; 
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -30,9 +30,10 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 setInterval(() => {
     if (io.sockets.adapter.rooms.get('admin_room')) {
         const stats = {
-            online: io.engine.clientsCount, // Tổng số người đang mở web/app
-            waiting: waitingUsers.length,   // Số người đang chờ ghép đôi
-            matches: Object.keys(pendingMatches).length // Số cặp đang chờ xác nhận
+            online: io.engine.clientsCount,
+            waiting: waitingUsers.length,
+            matches: Object.keys(pendingMatches).length,
+            reports: reportsList.length // Đếm số lượng báo cáo
         };
         io.to('admin_room').emit('admin_stats', stats);
     }
@@ -41,11 +42,11 @@ setInterval(() => {
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // 1. TÍNH NĂNG DÀNH RIÊNG CHO ADMIN
+  // --- ADMIN LOGIC ---
   socket.on('admin_login', (password) => {
-    if (password === 'admin123') { // Mật khẩu quản trị của bạn
+    if (password === 'admin123') { 
       socket.join('admin_room');
-      socket.emit('admin_auth_success');
+      socket.emit('admin_auth_success', reportsList); // Gửi toàn bộ báo cáo cũ khi đăng nhập
     } else {
       socket.emit('admin_auth_fail');
     }
@@ -53,17 +54,32 @@ io.on('connection', (socket) => {
 
   socket.on('admin_broadcast', (data) => {
     if (socket.rooms.has('admin_room')) {
-        // Gửi thông báo đến TẤT CẢ mọi người
         io.emit('system_broadcast', { message: data.message });
     }
   });
 
-  // 2. TÍNH NĂNG CHAT NGƯỜI LẠ (Giữ nguyên)
-// 2. TÍNH NĂNG CHAT NGƯỜI LẠ (Đã nâng cấp lọc Giới tính)
+  // --- XỬ LÝ BÁO CÁO ---
+  socket.on('report_user', (data) => {
+    if (socket.room && socket.partnerId) {
+        const partnerSocket = io.sockets.sockets.get(socket.partnerId);
+        const partnerName = partnerSocket ? partnerSocket.userData.name : 'Người lạ';
+        
+        const newReport = {
+            id: Date.now(),
+            time: new Date().toLocaleTimeString(),
+            reporter: socket.userData.name,
+            reported: partnerName,
+            reason: data.reason || 'Quấy rối / Spam'
+        };
+        
+        reportsList.unshift(newReport); // Đưa báo cáo mới nhất lên đầu mảng
+        io.to('admin_room').emit('admin_new_report', newReport); // Báo cho Admin
+    }
+  });
+
+  // --- CHAT LOGIC ---
   socket.on('find_stranger', (userData) => {
     socket.userData = userData; 
-    
-    // Tìm đối tác thỏa mãn điều kiện giới tính chéo nhau
     let partnerIndex = waitingUsers.findIndex(partner => {
         const pData = partner.userData;
         const matchMyTarget = userData.targetGender === 'Bất kỳ' || userData.targetGender === pData.myGender;
@@ -72,7 +88,6 @@ io.on('connection', (socket) => {
     });
 
     if (partnerIndex !== -1) {
-      // Nếu tìm thấy người khớp yêu cầu
       const partner = waitingUsers.splice(partnerIndex, 1)[0];
       const matchId = `${socket.id}#${partner.id}`;
       
@@ -85,11 +100,9 @@ io.on('connection', (socket) => {
       pendingMatches[matchId] = { user1: socket.id, user2: partner.id, user1Confirm: null, user2Confirm: null };
       socket.currentMatch = matchId; partner.currentMatch = matchId;
 
-      // Gửi thêm thông tin giới tính của nhau qua popup
       socket.emit('match_found', { distance, partnerName: partner.userData.name, partnerGender: partner.userData.myGender });
       partner.emit('match_found', { distance, partnerName: socket.userData.name, partnerGender: socket.userData.myGender });
     } else {
-      // Nếu chưa có ai khớp, đưa vào hàng đợi
       waitingUsers.push(socket);
       socket.emit('waiting', { message: `Đang tìm ${userData.targetGender !== 'Bất kỳ' ? userData.targetGender : 'người lạ'} phù hợp...` });
     }
