@@ -15,38 +15,35 @@ const io = new Server(server, {
 
 let waitingUsers = [];
 let pendingMatches = {}; 
-let reportsList = []; // Mảng lưu trữ danh sách báo cáo
+let reportsList = [];
+let bannedUsers = []; // DANH SÁCH ĐEN chứa những cái tên bị Admin cấm
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; 
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2); 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-  return R * c;
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-// Gửi thống kê cho Admin mỗi 3 giây
 setInterval(() => {
     if (io.sockets.adapter.rooms.get('admin_room')) {
-        const stats = {
+        io.to('admin_room').emit('admin_stats', {
             online: io.engine.clientsCount,
             waiting: waitingUsers.length,
             matches: Object.keys(pendingMatches).length,
-            reports: reportsList.length // Đếm số lượng báo cáo
-        };
-        io.to('admin_room').emit('admin_stats', stats);
+            reports: reportsList.length
+        });
     }
 }, 3000);
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-
+  
   // --- ADMIN LOGIC ---
   socket.on('admin_login', (password) => {
     if (password === 'admin123') { 
       socket.join('admin_room');
-      socket.emit('admin_auth_success', reportsList); // Gửi toàn bộ báo cáo cũ khi đăng nhập
+      socket.emit('admin_auth_success', reportsList); 
     } else {
       socket.emit('admin_auth_fail');
     }
@@ -56,6 +53,23 @@ io.on('connection', (socket) => {
     if (socket.rooms.has('admin_room')) {
         io.emit('system_broadcast', { message: data.message });
     }
+  });
+
+  // TÍNH NĂNG MỚI: ADMIN KHÓA TÀI KHOẢN
+  socket.on('admin_ban_user', (badUserName) => {
+      if (socket.rooms.has('admin_room')) {
+          if (!bannedUsers.includes(badUserName)) {
+              bannedUsers.push(badUserName); // Thêm vào sổ đen
+          }
+          
+          // Quét toàn bộ server, nếu thấy kẻ này đang online thì đá văng ngay lập tức
+          for (let [id, s] of io.sockets.sockets) {
+              if (s.userData && s.userData.name === badUserName) {
+                  s.emit('system_broadcast', { message: 'Tài khoản của bạn đã bị ADMIN KHÓA vĩnh viễn do vi phạm quy tắc cộng đồng!' });
+                  s.disconnect(true); // Cắt mạng người này
+              }
+          }
+      }
   });
 
   // --- XỬ LÝ BÁO CÁO ---
@@ -71,15 +85,22 @@ io.on('connection', (socket) => {
             reported: partnerName,
             reason: data.reason || 'Quấy rối / Spam'
         };
-        
-        reportsList.unshift(newReport); // Đưa báo cáo mới nhất lên đầu mảng
-        io.to('admin_room').emit('admin_new_report', newReport); // Báo cho Admin
+        reportsList.unshift(newReport);
+        io.to('admin_room').emit('admin_new_report', newReport);
     }
   });
 
   // --- CHAT LOGIC ---
   socket.on('find_stranger', (userData) => {
     socket.userData = userData; 
+
+    // CHẶN CỬA: Nếu người này nằm trong sổ đen, không cho tìm người lạ
+    if (bannedUsers.includes(userData.name)) {
+        socket.emit('system_broadcast', { message: 'Bạn không thể tìm người lạ vì tài khoản này đã bị khóa!' });
+        socket.emit('match_rejected', { message: 'Tài khoản của bạn đang bị cấm.' });
+        return;
+    }
+
     let partnerIndex = waitingUsers.findIndex(partner => {
         const pData = partner.userData;
         const matchMyTarget = userData.targetGender === 'Bất kỳ' || userData.targetGender === pData.myGender;
