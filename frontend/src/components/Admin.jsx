@@ -95,6 +95,7 @@ export default function Admin({ onLogout }) {
                                 <th style={{ padding: '10px', border: '1px solid #ddd' }}>Người tố cáo</th>
                                 <th style={{ padding: '10px', border: '1px solid #ddd' }}>Kẻ bị tố cáo</th>
                                 <th style={{ padding: '10px', border: '1px solid #ddd' }}>Lý do vi phạm</th>
+                                <th style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -104,6 +105,20 @@ export default function Admin({ onLogout }) {
                                     <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>{report.reporter}</td>
                                     <td style={{ padding: '10px', border: '1px solid #ddd', color: 'red', fontWeight: 'bold' }}>{report.reported}</td>
                                     <td style={{ padding: '10px', border: '1px solid #ddd' }}>{report.reason}</td>
+                                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                        {/* Nút Khóa tài khoản quyền lực của Admin */}
+                                        <button 
+                                            onClick={() => {
+                                                if(window.confirm(`Bạn có chắc muốn KHÓA VĨNH VIỄN người dùng [${report.reported}] không?`)) {
+                                                    socket.emit('admin_ban_user', report.reported);
+                                                    alert(`Đã khóa thành công ${report.reported}!`);
+                                                }
+                                            }} 
+                                            style={{ padding: '5px 15px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                        >
+                                            🚫 Khóa
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
