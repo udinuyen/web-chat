@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
 import Login from './components/Login';
 import Chat from './components/Chat';
-import Admin from './components/Admin'; // Thêm dòng import này
+import Admin from './components/Admin'; 
 
 function App() {
-  const [user, setUser] = useState(null); // null = chưa đăng nhập
+  const [authData, setAuthData] = useState(null); // Lưu trữ { token, user }
+
+  const handleLogout = () => {
+      setAuthData(null);
+  };
 
   return (
     <div className="app-container">
-      {!user ? (
-        <Login onLogin={setUser} />
-      ) : user.name.toLowerCase() === 'admin' ? (
-        // Nếu tên đăng nhập là "admin" thì hiển thị trang Quản trị
-        <Admin onLogout={() => setUser(null)} />
+      {!authData ? (
+        <Login onLogin={setAuthData} />
+      ) : authData.user.role === 'admin' ? (
+        <Admin token={authData.token} onLogout={handleLogout} />
       ) : (
-        // Nếu là người dùng bình thường thì vào Chat
-        <Chat user={user} onLogout={() => setUser(null)} />
+        <Chat token={authData.token} user={authData.user} onLogout={handleLogout} />
       )}
     </div>
   );

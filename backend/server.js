@@ -2,10 +2,13 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const { OAuth2Client } = require('google-auth-library');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
+app.use(express.json()); // Hỗ trợ đọc JSON body
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -13,17 +16,94 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e7
 });
 
+// CẤU HÌNH BẢO MẬT
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID";
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+const JWT_SECRET = process.env.JWT_SECRET || "chuoi-bao-mat-sieu-cap-vip-pro-2026";
+
 let waitingUsers = [];
 let pendingMatches = {}; 
 let reportsList = [];
-let bannedUsers = []; // DANH SÁCH ĐEN chứa những cái tên bị Admin cấm
+let bannedUsers = []; // Lưu ID thật thay vì Tên để chống đổi tên lách luật
 
+// ----------------------------------------------------
+// 1. CÁC ENDPOINT API XÁC THỰC (AUTHENTICATION)
+// ----------------------------------------------------
+
+// Đăng nhập bằng Google
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { token, myGender, targetGender } = req.body;
+        // Xác minh chữ ký từ Google thật 100%
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        
+        // Tạo JWT nội bộ
+        const user = { id: payload.sub, name: payload.name, email: payload.email, role: 'user', myGender, targetGender, avatar: payload.picture };
+        const authToken = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token: authToken, user });
+    } catch (err) {
+        console.error(err);
+        res.status(401).json({ error: 'Token Google không hợp lệ hoặc đã hết hạn.' });
+    }
+});
+
+// Đăng nhập Khách (Server tự cấp ID)
+app.post('/api/auth/guest', (req, res) => {
+    const { myGender, targetGender } = req.body;
+    const guestId = 'guest_' + Math.random().toString(36).substr(2, 10);
+    const guestName = 'Guest_' + Math.floor(Math.random() * 10000);
+    
+    const user = { id: guestId, name: guestName, role: 'guest', myGender, targetGender };
+    const authToken = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token: authToken, user });
+});
+
+// Đăng nhập Admin
+app.post('/api/auth/admin', (req, res) => {
+    const { password } = req.body;
+    if (password === 'admin123') { 
+        const user = { id: 'admin_master', name: 'Quản Trị Viên', role: 'admin' };
+        const authToken = jwt.sign(user, JWT_SECRET, { expiresIn: '12h' });
+        res.json({ token: authToken, user });
+    } else {
+        res.status(401).json({ error: 'Sai mật khẩu Admin!' });
+    }
+});
+
+// ----------------------------------------------------
+// 2. MIDDLEWARE SOCKET.IO (NGƯỜI GÁC CỔNG)
+// ----------------------------------------------------
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error("LỖI: Truy cập trái phép (Thiếu Token)"));
+    
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return next(new Error("LỖI: Token đã hết hạn hoặc bị giả mạo"));
+        
+        // Kiểm tra xem ID này có đang bị cấm không
+        if (bannedUsers.includes(decoded.id)) {
+            return next(new Error("BANNED"));
+        }
+        
+        // Gắn danh tính thật vào socket (Không tin tưởng dữ liệu client tự gửi nữa)
+        socket.user = decoded; 
+        next();
+    });
+});
+
+// ----------------------------------------------------
+// 3. SOCKET.IO LOGIC CHÍNH
+// ----------------------------------------------------
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; 
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2); 
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
 setInterval(() => {
@@ -38,73 +118,58 @@ setInterval(() => {
 }, 3000);
 
 io.on('connection', (socket) => {
-  
-  // --- ADMIN LOGIC ---
-  socket.on('admin_login', (password) => {
-    if (password === 'admin123') { 
+  // Tự động phân quyền vào phòng Admin
+  if (socket.user.role === 'admin') {
       socket.join('admin_room');
-      socket.emit('admin_auth_success', reportsList); 
-    } else {
-      socket.emit('admin_auth_fail');
-    }
-  });
+      socket.emit('admin_auth_success', reportsList);
+  }
 
   socket.on('admin_broadcast', (data) => {
-    if (socket.rooms.has('admin_room')) {
+    if (socket.user.role === 'admin') {
         io.emit('system_broadcast', { message: data.message });
     }
   });
 
-  // TÍNH NĂNG MỚI: ADMIN KHÓA TÀI KHOẢN
-  socket.on('admin_ban_user', (badUserName) => {
-      if (socket.rooms.has('admin_room')) {
-          if (!bannedUsers.includes(badUserName)) {
-              bannedUsers.push(badUserName); // Thêm vào sổ đen
-          }
+  socket.on('admin_ban_user', (badUserId) => {
+      if (socket.user.role === 'admin') {
+          if (!bannedUsers.includes(badUserId)) bannedUsers.push(badUserId);
           
-          // Quét toàn bộ server, nếu thấy kẻ này đang online thì đá văng ngay lập tức
           for (let [id, s] of io.sockets.sockets) {
-              if (s.userData && s.userData.name === badUserName) {
-                  s.emit('system_broadcast', { message: 'Tài khoản của bạn đã bị ADMIN KHÓA vĩnh viễn do vi phạm quy tắc cộng đồng!' });
-                  s.disconnect(true); // Cắt mạng người này
+              if (s.user && s.user.id === badUserId) {
+                  s.emit('system_broadcast', { message: 'Tài khoản của bạn đã bị KHÓA vĩnh viễn!' });
+                  s.disconnect(true);
               }
           }
       }
   });
 
-  // --- XỬ LÝ BÁO CÁO ---
   socket.on('report_user', (data) => {
     if (socket.room && socket.partnerId) {
         const partnerSocket = io.sockets.sockets.get(socket.partnerId);
-        const partnerName = partnerSocket ? partnerSocket.userData.name : 'Người lạ';
+        if(!partnerSocket) return;
         
         const newReport = {
             id: Date.now(),
             time: new Date().toLocaleTimeString(),
-            reporter: socket.userData.name,
-            reported: partnerName,
-            reason: data.reason || 'Quấy rối / Spam'
+            reporterId: socket.user.id,
+            reporterName: socket.user.name,
+            reportedId: partnerSocket.user.id, // Báo cáo bằng ID thật
+            reportedName: partnerSocket.user.name,
+            reason: data.reason || 'Vi phạm cộng đồng'
         };
         reportsList.unshift(newReport);
         io.to('admin_room').emit('admin_new_report', newReport);
     }
   });
 
-  // --- CHAT LOGIC ---
-  socket.on('find_stranger', (userData) => {
-    socket.userData = userData; 
-
-    // CHẶN CỬA: Nếu người này nằm trong sổ đen, không cho tìm người lạ
-    if (bannedUsers.includes(userData.name)) {
-        socket.emit('system_broadcast', { message: 'Bạn không thể tìm người lạ vì tài khoản này đã bị khóa!' });
-        socket.emit('match_rejected', { message: 'Tài khoản của bạn đang bị cấm.' });
-        return;
-    }
-
+  socket.on('find_stranger', (locationData) => {
+    // Client chỉ được gửi lên vị trí, danh tính lấy từ token
+    const myIdentity = socket.user; 
+    socket.location = locationData; // Lưu vị trí tạm thời
+    
     let partnerIndex = waitingUsers.findIndex(partner => {
-        const pData = partner.userData;
-        const matchMyTarget = userData.targetGender === 'Bất kỳ' || userData.targetGender === pData.myGender;
-        const matchPartnerTarget = pData.targetGender === 'Bất kỳ' || pData.targetGender === userData.myGender;
+        const matchMyTarget = myIdentity.targetGender === 'Bất kỳ' || myIdentity.targetGender === partner.user.myGender;
+        const matchPartnerTarget = partner.user.targetGender === 'Bất kỳ' || partner.user.targetGender === myIdentity.myGender;
         return matchMyTarget && matchPartnerTarget;
     });
 
@@ -113,19 +178,19 @@ io.on('connection', (socket) => {
       const matchId = `${socket.id}#${partner.id}`;
       
       let distance = 'Chưa xác định';
-      if (socket.userData.location && partner.userData.location) {
-        const distKm = calculateDistance(socket.userData.location.lat, socket.userData.location.lng, partner.userData.location.lat, partner.userData.location.lng);
+      if (socket.location && partner.location) {
+        const distKm = calculateDistance(socket.location.lat, socket.location.lng, partner.location.lat, partner.location.lng);
         distance = distKm < 1 ? '< 1 km' : `${distKm.toFixed(1)} km`;
       }
 
       pendingMatches[matchId] = { user1: socket.id, user2: partner.id, user1Confirm: null, user2Confirm: null };
       socket.currentMatch = matchId; partner.currentMatch = matchId;
 
-      socket.emit('match_found', { distance, partnerName: partner.userData.name, partnerGender: partner.userData.myGender });
-      partner.emit('match_found', { distance, partnerName: socket.userData.name, partnerGender: socket.userData.myGender });
+      socket.emit('match_found', { distance, partnerName: partner.user.name, partnerGender: partner.user.myGender });
+      partner.emit('match_found', { distance, partnerName: myIdentity.name, partnerGender: myIdentity.myGender });
     } else {
       waitingUsers.push(socket);
-      socket.emit('waiting', { message: `Đang tìm ${userData.targetGender !== 'Bất kỳ' ? userData.targetGender : 'người lạ'} phù hợp...` });
+      socket.emit('waiting', { message: `Đang tìm ${myIdentity.targetGender !== 'Bất kỳ' ? myIdentity.targetGender : 'người lạ'} phù hợp...` });
     }
   });
 
