@@ -1,78 +1,34 @@
 import React, { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
-import { SOCKET_URL } from '../config';
+import { jwtDecode } from "jwt-decode";
 
 export default function Login({ onLogin }) {
   const [customName, setCustomName] = useState('');
-  const [myGender, setMyGender] = useState('Nam');
-  const [targetGender, setTargetGender] = useState('Bất kỳ');
-  const [loading, setLoading] = useState(false);
+  const [myGender, setMyGender] = useState('Nam'); // Giới tính của mình
+  const [targetGender, setTargetGender] = useState('Bất kỳ'); // Giới tính muốn tìm
 
-  const API_URL = `${SOCKET_URL}/api/auth`;
-
-  const handleGuestLogin = async () => {
-    setLoading(true);
-    try {
-        const res = await fetch(`${API_URL}/guest`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ myGender, targetGender })
-        });
-        const data = await res.json();
-        if (data.token) onLogin(data);
-    } catch (err) {
-        alert("Lỗi kết nối Server");
-    }
-    setLoading(false);
+  const handleGuestLogin = () => {
+    const randomNum = Math.floor(Math.random() * 10000);
+    onLogin({ name: `Guest_${randomNum}`, isGuest: true, myGender, targetGender });
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    setLoading(true);
-    try {
-        // Gửi token thô nguyên bản của Google lên Server để Server tự giải mã và xác thực
-        const res = await fetch(`${API_URL}/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: credentialResponse.credential, myGender, targetGender })
-        });
-        const data = await res.json();
-        if (data.token) {
-            onLogin(data); // data bao gồm { token, user }
-        } else {
-            alert(data.error);
-        }
-    } catch (err) {
-        alert("Lỗi xác thực Google");
-    }
-    setLoading(false);
+  const handleGoogleSuccess = (credentialResponse) => {
+    const decoded = jwtDecode(credentialResponse.credential);
+    onLogin({ name: decoded.name, email: decoded.email, picture: decoded.picture, isGuest: false, myGender, targetGender });
   };
 
-  const handleCustomLogin = async (e) => {
+  const handleCustomLogin = (e) => {
     e.preventDefault();
-    if (customName.trim().toLowerCase() === 'admin') {
-        const password = window.prompt("Nhập mật khẩu Quản Trị Viên:");
-        if (!password) return;
-        
-        const res = await fetch(`${API_URL}/admin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password })
-        });
-        const data = await res.json();
-        if (data.token) onLogin(data);
-        else alert(data.error || "Sai mật khẩu!");
-        return;
-    }
-    alert("Vui lòng đăng nhập bằng Google hoặc Khách.");
+    if (customName.trim() === '') return;
+    onLogin({ name: customName.trim(), isGuest: false, myGender, targetGender });
   };
-
-  if (loading) return <div style={{textAlign: 'center', marginTop: '50px'}}>Đang xác thực bảo mật...</div>;
 
   return (
     <div className="login-container">
       <h1>Stranger Chat</h1>
-      <p style={{marginBottom: 10}}>Bảo mật bằng JWT Socket.IO</p>
+      <p style={{marginBottom: 10}}>Trò chuyện ẩn danh với người lạ</p>
       
+      {/* Khu vực chọn giới tính */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', width: '100%' }}>
         <select value={myGender} onChange={e => setMyGender(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '5px', border: '1px solid #ccc' }}>
           <option value="Nam">Tôi là: Nam</option>
@@ -89,23 +45,24 @@ export default function Login({ onLogin }) {
 
       <div style={{margin: '15px 0', color: '#888'}}>HOẶC</div>
 
+      {/* Form nhập tên thủ công cho Admin hoặc người chơi tùy chỉnh */}
       <form onSubmit={handleCustomLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', width: '100%' }}>
         <input 
           type="text" 
-          placeholder="Gõ 'admin' để quản lý máy chủ" 
+          placeholder="Nhập tên của bạn (hoặc gõ admin)..." 
           value={customName}
           onChange={(e) => setCustomName(e.target.value)}
           style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ccc', outline: 'none' }}
         />
         <button type="submit" style={{ padding: '10px', backgroundColor: '#333', color: 'white', borderRadius: '5px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-          Đăng nhập hệ thống
+          Đăng nhập bằng tên này
         </button>
       </form>
 
       <div style={{margin: '10px 0', color: '#888'}}>HOẶC</div>
 
       <button className="guest-btn" onClick={handleGuestLogin} style={{ width: '100%' }}>
-        Chơi ngay (Khách ẩn danh)
+        Chơi ngay (Khách ngẫu nhiên)
       </button>
     </div>
   );
