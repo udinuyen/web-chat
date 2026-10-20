@@ -1,20 +1,13 @@
 import React, { useState } from 'react';
-import { GoogleLogin } from '@react-oauth/google';
-import { jwtDecode } from "jwt-decode";
 
 export default function Login({ onLogin }) {
   const [customName, setCustomName] = useState('');
-  const [myGender, setMyGender] = useState('Nam'); // Giới tính của mình
-  const [targetGender, setTargetGender] = useState('Bất kỳ'); // Giới tính muốn tìm
+  const [myGender, setMyGender] = useState('Nam'); 
+  const [targetGender, setTargetGender] = useState('Bất kỳ'); 
 
   const handleGuestLogin = () => {
     const randomNum = Math.floor(Math.random() * 10000);
     onLogin({ name: `Guest_${randomNum}`, isGuest: true, myGender, targetGender });
-  };
-
-  const handleGoogleSuccess = (credentialResponse) => {
-    const decoded = jwtDecode(credentialResponse.credential);
-    onLogin({ name: decoded.name, email: decoded.email, picture: decoded.picture, isGuest: false, myGender, targetGender });
   };
 
   const handleCustomLogin = (e) => {
@@ -41,11 +34,7 @@ export default function Login({ onLogin }) {
         </select>
       </div>
 
-      <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => console.log('Đăng nhập Google thất bại')} />
-
-      <div style={{margin: '15px 0', color: '#888'}}>HOẶC</div>
-
-      {/* Form nhập tên thủ công cho Admin hoặc người chơi tùy chỉnh */}
+      {/* Form nhập tên thủ công cho Admin hoặc người chơi */}
       <form onSubmit={handleCustomLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', width: '100%' }}>
         <input 
           type="text" 
