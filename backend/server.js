@@ -231,9 +231,43 @@ io.on('connection', (socket) => {
     }
   });
 
+ // --- THÊM BIẾN LƯU THỜI GIAN ĐỂ CHỐNG SPAM ---
+  socket.lastMessageTime = 0;
+
   socket.on("send_message", (data) => {
-    if (socket.room) socket.to(socket.room).emit("receive_message", data);
-  }); 
+    // 1. Kiểm tra quyền: Phải đang ở trong phòng chat (đã ghép đôi) mới được gửi
+    if (!socket.room) return;
+
+    // 2. Chống Spam (Rate Limiting): Bắt buộc cách nhau ít nhất 0.5 giây (500ms) mỗi tin
+    const now = Date.now();
+    if (now - socket.lastMessageTime < 500) {
+        socket.emit('system_broadcast', { message: 'Bạn gửi tin nhắn quá nhanh, vui lòng chậm lại!' });
+        return;
+    }
+    socket.lastMessageTime = now;
+
+    // 3. Kiểm duyệt Dữ liệu (Validation)
+    if (data.text) {
+        // Chặn tin nhắn quá dài (giới hạn 1000 ký tự)
+        if (data.text.length > 1000) {
+            socket.emit('system_broadcast', { message: 'Tin nhắn của bạn quá dài (tối đa 1000 ký tự).' });
+            return;
+        }
+        // Làm sạch mã HTML cơ bản (chống tấn công XSS - Cross Site Scripting)
+        data.text = data.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    if (data.image) {
+        // Chặn ảnh nén dung lượng ảo từ hacker (2MB Base64 ~ 2.8 triệu ký tự)
+        if (data.image.length > 2.8 * 1024 * 1024) {
+            socket.emit('system_broadcast', { message: 'File ảnh không hợp lệ hoặc quá lớn!' });
+            return;
+        }
+    }
+
+    // 4. Vượt qua hết vòng kiểm duyệt -> Phát tin nhắn đi
+    socket.to(socket.room).emit("receive_message", data);
+  });
 
   socket.on('leave_chat', () => {
     if (socket.room) {

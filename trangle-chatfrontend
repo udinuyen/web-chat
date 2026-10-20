@@ -1,0 +1,25 @@
+[33maf18d47[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m  update backend
+[33ma891a13[m Them tinh nang Ban nguoi dung
+[33m0788de6[m Them nut Khoa Tai Khoan cho Admin
+[33mc54c9db[m Sua loi cu phap ngoac don file Chat.jsx
+[33m5ad5e3e[m Them logic xu ly bao cao
+[33mdd46c49[m Them nut bao cao vao Chat va bang Admin
+[33mf1ad32a[m Cap nhat thuat toan ghep doi theo gioi tinh
+[33ma7862ed[m Them tinh nang chon gioi tinh
+[33mc3d8333[m Them o nhap ten vao trang Login
+[33mb0e762b[m Them trang Admin va phan luong App.jsx
+[33mf57edc3[m Them popup hien thi QR Code
+[33m63ffbb2[m Them nut Tai App
+[33m2ce5d4c[m Them nut Tai App
+[33m8eacb71[m Update frontend popup xac nhan vi tri
+[33m4625c61[m Fix
+[33m546ae64[m Fix
+[33mfabe30b[m Fix loi crash server do trung lap code
+[33md6dfc65[m Fix loi khong nhan duoc tin nhan
+[33m2d95a49[m Tang dung luong anh va fix loi socket
+[33m072d51c[m Them tinh nang
+[33m1b0616b[m Them tinh nang gui anh
+[33mfdffd78[m Cap nhat Backend
+[33m32fcc33[m Cap nhat Google Client ID
+[33mcb11676[m Cap nhat link Render cho Socket
+[33m7fe3311[m Cap nhat toan bo frontend va backend
