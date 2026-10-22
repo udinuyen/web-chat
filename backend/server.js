@@ -237,6 +237,7 @@ io.on('connection', (socket) => {
       if (otherSocket) otherSocket.currentMatch = null;
       delete pendingMatches[matchId];
     }
+
   });
 
  // --- THÊM BIẾN LƯU THỜI GIAN ĐỂ CHỐNG SPAM ---
@@ -319,8 +320,22 @@ io.on('connection', (socket) => {
             }
         }, 10000); // 10000ms = 10 giây
     }
+    
 });
-});
+
+if (socket.recovered) {
+        const rooms = Array.from(socket.rooms);
+        // Tìm phòng chat (có chứa dấu # theo quy tắc ghép đôi của chúng ta)
+        const chatRoom = rooms.find(r => r.includes('#')); 
+        if (chatRoom) {
+            socket.room = chatRoom; // Gắn lại tên phòng
+            
+            // Lấy lại ID của đối tác để chức năng Rời phòng/Báo cáo không bị lỗi
+            const ids = chatRoom.split('#');
+            socket.partnerId = ids[0] === socket.id ? ids[1] : ids[0];
+        }
+    }
+}); // <--- Đóng ngoặc của io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server đang chạy trên cổng ${PORT}`));
