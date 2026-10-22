@@ -10,6 +10,16 @@ const app = express();
 app.use(cors());
 app.use(express.json()); // Hỗ trợ đọc JSON body
 
+const io = require("socket.io")(server, {
+    cors: {
+        origin: "*", 
+    },
+    // Thêm khối này vào để cho phép giữ kết nối khi rớt mạng
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 15000, // Cấp phép tối đa 15 giây để nối lại
+    }
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
@@ -284,20 +294,34 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
-    if (socket.room) socket.to(socket.room).emit('stranger_left', { message: 'Người lạ đã mất kết nối.' });
-    if (socket.currentMatch && pendingMatches[socket.currentMatch]) {
-        const match = pendingMatches[socket.currentMatch];
-        const otherId = socket.id === match.user1 ? match.user2 : match.user1;
-        const otherSocket = io.sockets.sockets.get(otherId);
-        if (otherSocket) {
-            otherSocket.emit('match_rejected', { message: 'Người lạ đã rời đi.' });
-            otherSocket.currentMatch = null;
-        }
-        delete pendingMatches[socket.currentMatch];
+ socket.on("disconnect", () => {
+    const currentRoom = socket.room; // Lấy ID phòng của người vừa rớt mạng
+
+    if (currentRoom) {
+        // 1. Khoan đuổi ra, chỉ báo cho đối tác biết là người kia đang lag
+        socket.to(currentRoom).emit("system_broadcast", { 
+            message: "⚠️ Người lạ đang mất kết nối mạng, vui lòng đợi..." 
+        });
+
+        // 2. Chờ đúng 10 giây
+        setTimeout(async () => {
+            // Kiểm tra xem lúc này trong phòng còn mấy người
+            const sockets = await io.in(currentRoom).fetchSockets();
+            
+            // Nếu chỉ còn 1 người (nghĩa là sau 10s người kia vẫn chưa nối mạng lại được)
+            if (sockets.length < 2) {
+                io.to(currentRoom).emit("leave_chat"); // Lúc này mới chính thức kết thúc chat
+                
+                // (Bạn giữ nguyên các lệnh xóa user khỏi danh sách hàng đợi ở đoạn này)
+            } else {
+                // Nếu họ đã nối lại thành công, báo tin vui
+                io.to(currentRoom).emit("system_broadcast", { 
+                    message: "✅ Người lạ đã kết nối lại thành công!" 
+                });
+            }
+        }, 10000); // 10000ms = 10 giây
     }
-    waitingUsers = waitingUsers.filter(u => u.id !== socket.id);
-  });
+});
 });
 
 const PORT = process.env.PORT || 5000;
