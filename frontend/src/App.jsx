@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Login from './components/Login';
 import Chat from './components/Chat';
 import Admin from './components/Admin'; 
+const [isOffline, setIsOffline] = useState(false);
 
 function App() {
   const [authData, setAuthData] = useState(null); // Lưu trữ { token, user }
