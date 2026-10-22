@@ -10,20 +10,18 @@ const app = express();
 app.use(cors());
 app.use(express.json()); // Hỗ trợ đọc JSON body
 
-const io = require("socket.io")(server, {
-    cors: {
-        origin: "*", 
-    },
-    // Thêm khối này vào để cho phép giữ kết nối khi rớt mạng
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 15000, // Cấp phép tối đa 15 giây để nối lại
-    }
-});
-
 const server = http.createServer(app);
+
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
-  maxHttpBufferSize: 1e7
+    cors: { 
+        origin: "*", 
+        methods: ["GET", "POST"] 
+    },
+    maxHttpBufferSize: 1e7,
+    // Bật tính năng giữ kết nối 15 giây khi rớt mạng
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 15000, 
+    }
 });
 
 // CẤU HÌNH BẢO MẬT
