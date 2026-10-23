@@ -245,8 +245,12 @@ io.on('connection', (socket) => {
 
   socket.on("send_message", (data) => {
     // 1. Kiểm tra quyền: Phải đang ở trong phòng chat (đã ghép đôi) mới được gửi
-    if (!socket.room) return;
-
+    if (!socket.room) {
+        // Ép giao diện người dùng văng ra màn hình "Tìm người lạ"
+        socket.emit("leave_chat"); 
+        socket.emit("system_broadcast", { message: "⚠️ Đã mất kết nối với phòng chat cũ do rớt mạng quá lâu. Vui lòng tìm người mới!" });
+        return;
+    }
     // 2. Chống Spam (Rate Limiting): Bắt buộc cách nhau ít nhất 0.5 giây (500ms) mỗi tin
     const now = Date.now();
     if (now - socket.lastMessageTime < 500) {
