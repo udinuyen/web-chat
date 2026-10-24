@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const logger = require('./logger');
 require('dotenv').config();
 
 const app = express();
@@ -54,7 +55,7 @@ app.post('/api/auth/google', async (req, res) => {
         const authToken = jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token: authToken, user });
     } catch (err) {
-        console.error(err);
+        logger.error(`Lỗi xác thực Google Token: ${err.message}`);  
         res.status(401).json({ error: 'Token Google không hợp lệ hoặc đã hết hạn.' });
     }
 });
@@ -342,4 +343,6 @@ if (socket.recovered) {
 }); // <--- Đóng ngoặc của io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server đang chạy trên cổng ${PORT}`));
+// Xóa dòng này: server.listen(PORT, () => console.log(`Server đang chạy trên cổng ${PORT}`));
+// Thay bằng dòng này:
+server.listen(PORT, () => logger.info(`Máy chủ đã khởi động thành công trên cổng ${PORT}`));
