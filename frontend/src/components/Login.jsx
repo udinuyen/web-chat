@@ -50,8 +50,8 @@ export default function Login({ onLogin }) {
   const handleCustomLogin = async (e) => {
     e.preventDefault();
     if (customName.trim().toLowerCase() === 'admin') {
-        const password = window.prompt("Nhập mật khẩu Quản Trị Viên:");
-        if (!password) return;
+        // const password = window.prompt("Nhập mật khẩu Quản Trị Viên:");
+        // if (!password) return;
         
         const res = await fetch(`${API_URL}/admin`, {
             method: 'POST',
