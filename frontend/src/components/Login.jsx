@@ -52,6 +52,8 @@ export default function Login({ onLogin }) {
     if (customName.trim().toLowerCase() === 'admin') {
         // const password = window.prompt("Nhập mật khẩu Quản Trị Viên:");
         // if (!password) return;
+
+        const password = 'admin123'; // Mật khẩu tạm thời để test, sau này sẽ đổi sang cơ chế bảo mật hơn
         
         const res = await fetch(`${API_URL}/admin`, {
             method: 'POST',
