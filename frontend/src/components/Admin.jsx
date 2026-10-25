@@ -4,37 +4,54 @@ import { SOCKET_URL } from '../config';
 
 let socket;
 
-export default function Admin({ onLogout }) {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [password, setPassword] = useState('');
+// Không cần form đăng nhập nữa vì App.jsx đã cấp cho ta quyền và Token rồi
+export default function Admin({ token, onLogout }) {
     const [stats, setStats] = useState({ online: 0, waiting: 0, matches: 0, reports: 0 });
     const [broadcastMsg, setBroadcastMsg] = useState('');
-    const [reportList, setReportList] = useState([]); // Mảng chứa danh sách báo cáo
+    const [reportList, setReportList] = useState([]);
 
-    useEffect(() => {
-        socket = io(SOCKET_URL);
-        
-        socket.on('admin_auth_success', (historyReports) => {
-            setIsAuthenticated(true);
-            setReportList(historyReports || []);
-        });
-        
-        socket.on('admin_auth_fail', () => alert("Sai mật khẩu Admin!"));
-        
-        socket.on('admin_stats', (data) => setStats(data));
+   
+useEffect(() => {
+    if (!token) return;
 
-        // Nhận báo cáo mới theo thời gian thực
-        socket.on('admin_new_report', (newReport) => {
-            setReportList(prev => [newReport, ...prev]);
-        });
+    const adminSocket = io(SOCKET_URL, {
+        auth: { token },
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+    });
 
-        return () => socket.disconnect();
-    }, []);
+    socket = adminSocket;
 
-    const handleLogin = (e) => {
-        e.preventDefault();
-        socket.emit('admin_login', password);
+    adminSocket.on('connect', () => {
+        console.log('Admin Socket đã kết nối:', adminSocket.id);
+    });
+
+    adminSocket.on('connect_error', (err) => {
+        console.error('Lỗi kết nối Admin Socket:', err.message);
+    });
+
+    adminSocket.on('admin_auth_success', (historyReports) => {
+        setReportList(historyReports || []);
+    });
+
+    adminSocket.on('admin_stats', (data) => {
+        setStats(data);
+    });
+
+    adminSocket.on('admin_new_report', (newReport) => {
+        setReportList((prev) => [newReport, ...prev]);
+    });
+
+    return () => {
+        adminSocket.disconnect();
+
+        if (socket === adminSocket) {
+            socket = null;
+        }
     };
+}, [token]);
+
 
     const sendBroadcast = () => {
         if (!broadcastMsg.trim()) return;
@@ -43,23 +60,11 @@ export default function Admin({ onLogout }) {
         alert("Đã phát loa thông báo thành công!");
     };
 
-    if (!isAuthenticated) {
-        return (
-            <div style={{ textAlign: 'center', marginTop: '50px' }}>
-                <h2>Đăng nhập Admin</h2>
-                <form onSubmit={handleLogin}>
-                    <input type="password" placeholder="Nhập mật khẩu..." value={password} onChange={e => setPassword(e.target.value)} style={{ padding: '10px' }} />
-                    <button type="submit" style={{ padding: '10px', marginLeft: '10px', backgroundColor: 'black', color: 'white' }}>Vào</button>
-                </form>
-            </div>
-        );
-    }
-
     return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+        <div style={{ padding: '20px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h1 style={{ color: 'red' }}>⚙️ BẢNG ĐIỀU KHIỂN ADMIN</h1>
-                <button onClick={onLogout} style={{ padding: '5px 15px' }}>Thoát</button>
+                <h1 style={{ color: 'red' }}>⚙️ TỔNG LÃNH SỰ QUÁN ADMIN (Secure Mode)</h1>
+                <button onClick={onLogout} style={{ padding: '8px 20px', cursor: 'pointer' }}>Đăng Xuất</button>
             </div>
             
             <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
@@ -82,7 +87,6 @@ export default function Admin({ onLogout }) {
                 </div>
             </div>
 
-            {/* BẢNG HIỂN THỊ BÁO CÁO */}
             <div style={{ marginTop: '30px' }}>
                 <h3 style={{ color: 'red' }}>🚨 DANH SÁCH BÁO CÁO GẦN ĐÂY</h3>
                 {reportList.length === 0 ? (
@@ -93,7 +97,7 @@ export default function Admin({ onLogout }) {
                             <tr style={{ backgroundColor: '#ffcdd2', textAlign: 'left' }}>
                                 <th style={{ padding: '10px', border: '1px solid #ddd' }}>Thời gian</th>
                                 <th style={{ padding: '10px', border: '1px solid #ddd' }}>Người tố cáo</th>
-                                <th style={{ padding: '10px', border: '1px solid #ddd' }}>Kẻ bị tố cáo</th>
+                                <th style={{ padding: '10px', border: '1px solid #ddd' }}>Kẻ bị tố cáo (ID Ẩn)</th>
                                 <th style={{ padding: '10px', border: '1px solid #ddd' }}>Lý do vi phạm</th>
                                 <th style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>Hành động</th>
                             </tr>
@@ -102,21 +106,23 @@ export default function Admin({ onLogout }) {
                             {reportList.map((report) => (
                                 <tr key={report.id}>
                                     <td style={{ padding: '10px', border: '1px solid #ddd' }}>{report.time}</td>
-                                    <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>{report.reporter}</td>
-                                    <td style={{ padding: '10px', border: '1px solid #ddd', color: 'red', fontWeight: 'bold' }}>{report.reported}</td>
+                                    <td style={{ padding: '10px', border: '1px solid #ddd', fontWeight: 'bold' }}>{report.reporterName}</td>
+                                    <td style={{ padding: '10px', border: '1px solid #ddd', color: 'red', fontWeight: 'bold' }}>
+                                        {report.reportedName} <br/> <span style={{fontSize: '10px', color: '#999'}}>ID: {report.reportedId}</span>
+                                    </td>
                                     <td style={{ padding: '10px', border: '1px solid #ddd' }}>{report.reason}</td>
                                     <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>
-                                        {/* Nút Khóa tài khoản quyền lực của Admin */}
                                         <button 
                                             onClick={() => {
-                                                if(window.confirm(`Bạn có chắc muốn KHÓA VĨNH VIỄN người dùng [${report.reported}] không?`)) {
-                                                    socket.emit('admin_ban_user', report.reported);
-                                                    alert(`Đã khóa thành công ${report.reported}!`);
+                                                if(window.confirm(`Bạn có chắc muốn KHÓA VĨNH VIỄN thiết bị/tài khoản này?`)) {
+                                                    // Gửi ID thật của kẻ đó lên server để ban tận gốc
+                                                    socket.emit('admin_ban_user', report.reportedId);
+                                                    alert(`Đã khóa thành công ${report.reportedName}!`);
                                                 }
                                             }} 
                                             style={{ padding: '5px 15px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                                         >
-                                            🚫 Khóa
+                                            🚫 Ban ID
                                         </button>
                                     </td>
                                 </tr>
