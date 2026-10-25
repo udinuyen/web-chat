@@ -47,26 +47,45 @@ export default function Login({ onLogin }) {
     setLoading(false);
   };
 
-  const handleCustomLogin = async (e) => {
-    e.preventDefault();
-    if (customName.trim().toLowerCase() === 'admin') {
-        // const password = window.prompt("Nhập mật khẩu Quản Trị Viên:");
-        // if (!password) return;
+ 
+const handleCustomLogin = async (e) => {
+  e.preventDefault();
 
-        const password = 'admin123'; // Mật khẩu tạm thời để test, sau này sẽ đổi sang cơ chế bảo mật hơn
-        
-        const res = await fetch(`${API_URL}/admin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password })
-        });
-        const data = await res.json();
-        if (data.token) onLogin(data);
-        else alert(data.error || "Sai mật khẩu!");
-        return;
+  if (customName.trim().toLowerCase() !== 'admin') {
+    alert('Vui lòng nhập admin để đăng nhập quản trị.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const password = 'admin123'; // Chỉ dùng tạm để kiểm thử
+
+    const res = await fetch(`${API_URL}/admin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.token || !data.user) {
+      alert(data.error || 'Đăng nhập Admin thất bại!');
+      return;
     }
-    alert("Vui lòng đăng nhập bằng Google hoặc Khách.");
-  };
+
+    // Gửi dữ liệu cho App.jsx để chuyển sang giao diện Admin
+    onLogin(data);
+  } catch (error) {
+    console.error('Lỗi đăng nhập Admin:', error);
+    alert('Không kết nối được máy chủ. Vui lòng thử lại.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   if (loading) return <div style={{textAlign: 'center', marginTop: '50px'}}>Đang xác thực bảo mật...</div>;
 
