@@ -164,22 +164,22 @@ export default function Chat({ token, user, onLogout }) {
             <button onClick={onLogout}>Đăng xuất</button>
             
             {/* Nút báo cáo lỗi Google Form */}
-            <button 
-                onClick={() => window.open('LIhttps://docs.google.com/forms/d/e/1FAIpQLSdIyAGyb_N9KbYeR4VHZeXvPSfgjGUlzfxOWw439_YGM1uwxA/viewform?usp=publish-editor', '_blank')}
-                style={{
-                    backgroundColor: '#4f46e5',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    marginLeft: '10px' 
-                }}
-            >
-                💡 Góp ý / Báo lỗi
-            </button>
+          <button 
+    onClick={() => window.open('https://docs.google.com/forms/d/e/1FAIpQLSdIyAGyb_N9KbYeR4VHZeXvPSfgjGUlzfxOWw439_YGM1uwxA/viewform', '_blank')}
+    style={{
+        backgroundColor: '#4f46e5',
+        color: 'white',
+        border: 'none',
+        padding: '8px 12px',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        marginLeft: '10px' 
+    }}
+>
+    💡 Góp ý / Báo lỗi
+</button>
         </div>
       </div>
 
