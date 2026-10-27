@@ -165,7 +165,7 @@ export default function Chat({ token, user, onLogout }) {
             
             {/* Nút báo cáo lỗi Google Form */}
             <button 
-                onClick={() => window.open('LINK_GOOGLE_FORM_CỦA_BẠN', '_blank')}
+                onClick={() => window.open('LIhttps://docs.google.com/forms/d/e/1FAIpQLSdIyAGyb_N9KbYeR4VHZeXvPSfgjGUlzfxOWw439_YGM1uwxA/viewform?usp=publish-editor', '_blank')}
                 style={{
                     backgroundColor: '#4f46e5',
                     color: 'white',
